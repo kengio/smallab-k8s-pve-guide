@@ -2,12 +2,17 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-commonLabels:
-  app: server-prometheus
+labels:
+- pairs:
+    app: server-prometheus
+  includeSelectors: true
+  includeTemplates: true
 
 resources:
-- resources/data-server-prometheus.persistentvolumeclaim.yaml
-- resources/server-prometheus.ingressroute.traefik.yaml
+- resources/server-prometheus.serviceaccount.yaml
+- resources/server-prometheus.clusterrole.yaml
+- resources/server-prometheus.clusterrolebinding.yaml
+- resources/server-prometheus.persistentvolumeclaim.yaml
 - resources/server-prometheus.service.yaml
 - resources/server-prometheus.statefulset.yaml
 
@@ -17,10 +22,16 @@ replicas:
 
 images:
 - name: prom/prometheus
-  newTag: v2.35.0
+  newTag: v3.9.1
 
 configMapGenerator:
-- name: server-prometheus
+- name: server-prometheus-config
   files:
   - configs/prometheus.rules.yaml
   - configs/prometheus.yaml
+
+secretGenerator:
+- name: server-prometheus-web-config
+  files:
+  - secrets/prometheus.web.yaml
+  - secrets/basic_auth.pwd

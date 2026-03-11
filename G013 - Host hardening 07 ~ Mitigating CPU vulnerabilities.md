@@ -1,93 +1,104 @@
 # G013 - Host hardening 07 ~ Mitigating CPU vulnerabilities
 
-CPUs also come with bugs and, in some cases, can become security vulnerabilities. At the time of writing this, the most famous cases of such bugs are the **meltdown** and **spectre** vulnerabilities.
+- [CPUs also have security vulnerabilities](#cpus-also-have-security-vulnerabilities)
+- [Discovering your CPU's vulnerabilities](#discovering-your-cpus-vulnerabilities)
+- [Your Proxmox VE system already has the correct microcode package applied](#your-proxmox-ve-system-already-has-the-correct-microcode-package-applied)
+- [Relevant system paths](#relevant-system-paths)
+  - [Directories](#directories)
+  - [Files](#files)
+- [References](#references)
+  - [About CPU vulnerabilities](#about-cpu-vulnerabilities)
+- [Navigation](#navigation)
 
-## Checking out your CPU's vulnerabilities
+## CPUs also have security vulnerabilities
 
-To check out what known vulnerabilities your CPU has, perform these steps.
+CPUs also come with bugs and, in some cases, they can become security vulnerabilities. For instance, a couple of famous cases of such bugs were the meltdown and spectre vulnerabilities.
 
-1. Open a shell as your administrator user, and execute the following.
+## Discovering your CPU's vulnerabilities
 
-    ~~~bash
+To check out what known vulnerabilities your CPU has, perform these steps:
+
+1. Open a remote terminal as your administrator user into your Proxmox VE, and execute the following:
+
+    ~~~sh
     $ cat /proc/cpuinfo | grep bugs
     ~~~
 
-2. The output will be one line per core on your CPU. So, in an old four single-threaded cores Intel CPU like mine it looks like below.
+2. The output will be one line per core on your CPU. So, in the four-cores processor of this guide's reference hardware it looks like below:
 
-    ~~~bash
-    bugs            : cpu_meltdown spectre_v1 spectre_v2 mds msbds_only
-    bugs            : cpu_meltdown spectre_v1 spectre_v2 mds msbds_only
-    bugs            : cpu_meltdown spectre_v1 spectre_v2 mds msbds_only
-    bugs            : cpu_meltdown spectre_v1 spectre_v2 mds msbds_only
+    ~~~sh
+    bugs            : cpu_meltdown spectre_v1 spectre_v2 mds msbds_only mmio_unknown
+    bugs            : cpu_meltdown spectre_v1 spectre_v2 mds msbds_only mmio_unknown
+    bugs            : cpu_meltdown spectre_v1 spectre_v2 mds msbds_only mmio_unknown
+    bugs            : cpu_meltdown spectre_v1 spectre_v2 mds msbds_only mmio_unknown
     ~~~
 
-As you may expect, the list of vulnerabilities will change depending on the CPU.
+As you can imagine, the list of vulnerabilities will change depending on the CPU inspected.
 
-## Applying the correct microcode package
+## Your Proxmox VE system already has the correct microcode package applied
 
-To mitigate these bugs, you can install the proper microcode `apt` package for your CPU: the `intel-microcode` or the `amd-microcode` one. But to do so, first you need to enable the proper `apt` sources so those packages can be downloaded in your system.
+To mitigate these bugs, it is required to install the proper microcode `apt` package for your CPU: the `intel-microcode` or the `amd-microcode` one. In this guide's case, the Proxmox VE installation process already installed the correct package (the `intel-microcode` one) in the system. This can be discovered by first checking what `apt` sources are configured in the `/etc/apt/sources.list.d/debian.sources` file:
 
-1. Log in as `mgrsys`, then `cd` to `/etc/apt/sources.list.d`.
+~~~properties
+Types: deb
+URIs: http://deb.debian.org/debian/
+Suites: trixie trixie-updates
+Components: main contrib non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 
-    ~~~bash
-    $ cd /etc/apt/sources.list.d
-    ~~~
+Types: deb
+URIs: http://security.debian.org/debian-security/
+Suites: trixie-security
+Components: main contrib non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+~~~
 
-2. Create a new file called `debian-nonfree.list`.
+Notice that both sources have the `non-free-firmware` components, which is where the microcode packages are part of. Then, you try to install the `intel-microcode` package in the PVE system with `apt`:
 
-    ~~~bash
-    $ sudo touch debian-nonfree.list
-    ~~~
+~~~sh
+$ sudo apt install -y intel-microcode
+intel-microcode is already the newest version (3.20250512.1).
+Summary:
+  Upgrading: 0, Installing: 0, Removing: 0, Not Upgrading: 3
+~~~
 
-3. Edit the `debian-nonfree.list` file, filling it with the lines below.
+The `apt` command warns that the package is already installed in the system and in its newest version. Therefore, you can expect your Proxmox VE setup to have the correct microcode package already applied. If not, first ensure that your `/etc/apt/sources.list.d/debian.sources` file looks like the one shown before, then do the following:
 
-    ~~~bash
-    deb http://deb.debian.org/debian bullseye non-free
-    deb-src http://deb.debian.org/debian bullseye non-free
+1. Make apt update its references, then install the correct microcode package for your system:
 
-    deb http://deb.debian.org/debian-security/ bullseye-security non-free
-    deb-src http://deb.debian.org/debian-security/ bullseye-security non-free
-
-    deb http://deb.debian.org/debian bullseye-updates non-free
-    deb-src http://deb.debian.org/debian bullseye-updates non-free
-    ~~~
-
-    > **BEWARE!**  
-    > This sources list is only for Debian 11 Bullseye!
-
-4. Save the file, update `apt` and then install the package that suits your CPU. In my case, I'll apply the `intel-microcode` package.
-
-    ~~~bash
+    ~~~sh
     $ sudo apt update
     $ sudo apt install -y intel-microcode
     ~~~
 
-5. After the package's installation is done, reboot your system.
+2. After the package's installation is done, reboot your system:
 
-    ~~~bash
+    ~~~sh
     $ sudo reboot
     ~~~
 
-> **BEWARE!**  
-> The microcode package can affect the **performance** of your CPU. Also, the microcode applied may just mitigate rather than completely fix the vulnerabilities on your CPU.
+> [!WARNING]
+> **The microcode package can affect your CPU's performance**\
+> Furthermore, the microcode applied may just mitigate rather than completely fix the vulnerabilities on your CPU.
 
 ## Relevant system paths
 
-### _Directories_
+### Directories
 
 - `/etc/apt/sources.list.d`
 - `/proc`
 
-### _Files_
+### Files
 
-- `/etc/apt/sources.list.d/debian-nonfree.list`
+- `/etc/apt/sources.list.d/debian.sources`
 - `/proc/cpuinfo`
 
 ## References
 
+### About CPU vulnerabilities
+
 - [Meltdown and Spectre](https://meltdownattack.com/)
-- [Microcode on Debian Wiki](https://wiki.debian.org/Microcode)
-- [Debian Wiki. SourcesList](https://wiki.debian.org/SourcesList)
+- [Debian Wiki. Microcode](https://wiki.debian.org/Microcode)
 
 ## Navigation
 

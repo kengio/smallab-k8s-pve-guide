@@ -4,18 +4,19 @@ kind: Kustomization
 
 namespace: monitoring
 
-commonLabels:
-  platform: monitoring
-
-namePrefix: mntr-
+labels:
+- pairs:
+    platform: monitoring
+  includeSelectors: true
+  includeTemplates: true
 
 resources:
-- resources/data-grafana.persistentvolume.yaml
-- resources/data-prometheus.persistentvolume.yaml
+- resources/monitoring-ssd-grafana-data.persistentvolume.yaml
+- resources/monitoring-ssd-prometheus-data.persistentvolume.yaml
+- resources/monitoring.homelab.cloud-tls.certificate.cert-manager.yaml
+- resources/monitoring.homelab.cloud.ingressroute.traefik.yaml
 - resources/monitoring.namespace.yaml
-- resources/monitoring.clusterrole.yaml
-- resources/monitoring.clusterrolebinding.yaml
 - components/agent-kube-state-metrics
 - components/agent-prometheus-node-exporter
+- components/server-grafana
 - components/server-prometheus
-- components/ui-grafana

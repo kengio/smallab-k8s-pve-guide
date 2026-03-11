@@ -1,0 +1,9 @@
+# Default IP address pool setup
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+
+metadata:
+  name: default-pool
+spec:
+  addresses:
+  - 10.7.0.1-10.7.0.20
